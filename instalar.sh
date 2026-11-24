@@ -18,14 +18,18 @@ SUPABASE_COMMIT="86f9c0c2506c8276a03410d99f3185b8bd67d0e9"   # versão testada d
 APP_DOMAIN="${LEADCRM_DOMINIO_APP:-}"; API_DOMAIN="${LEADCRM_DOMINIO_API:-}"; ACME_EMAIL="${LEADCRM_EMAIL:-}"
 ADMIN_EMAIL="${LEADCRM_ADMIN_EMAIL:-}"; ADMIN_SENHA="${LEADCRM_ADMIN_SENHA:-}"
 GOOGLE_PLACES_API_KEY="${GOOGLE_PLACES_API_KEY:-}"
-SIM=0; IGNORAR_DNS=0; GOSOM=""; CADASTRO=""; BACKUP=1; FIREWALL=0; SO_STATUS=0; SO_LOGS=0
+SIM=0; IGNORAR_DNS=0; GOSOM=""; CADASTRO=""; BACKUP=1; FIREWALL=0; SO_STATUS=0; SO_LOGS=0; SO_PROGRESSO=0
+LOG=/var/log/leadcrm-instalacao.log
+ESTADO="$AQUI/.instalacao-estado"   # ETAPA|hora|pid|descrição: lido por --progresso e por quem acompanha
+INSTALANDO=0; INICIO=$(date +%s)
 
 vermelho() { printf '\033[31m%s\033[0m\n' "$*"; }
-passo() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
+etapa() { [ "$INSTALANDO" = 1 ] && printf '%s|%s|%s|%s\n' "$1" "$(date '+%F %T')" "$$" "$2" > "$ESTADO" || true; }
+passo() { printf '\n\033[1m==> [%s] %s\033[0m\n' "$(date +%H:%M:%S)" "$*"; etapa RODANDO "$*"; }
 ok() { printf '\033[32m✓\033[0m %s\n' "$*"; }
 aviso() { printf '\033[33m!\033[0m %s\n' "$*"; }
 erro() { vermelho "ERRO: $*"; exit 1; }
-trap 'vermelho "A instalação parou na linha $LINENO. Corrija a causa e rode de novo: é seguro repetir."' ERR
+trap 'vermelho "A instalação parou na linha $LINENO (comando: $BASH_COMMAND). Corrija a causa e rode de novo: é seguro repetir."' ERR
 
 ajuda() {
   cat <<'TXT'
@@ -44,7 +48,8 @@ Opções:
   --ignorar-dns       segue mesmo se o DNS ainda não aponta para este servidor (ex.: proxy da Cloudflare)
   -y                  não pergunta nada
   --status            mostra a situação e sai
-  --logs              mostra as últimas linhas do log do sistema e sai
+  --progresso         mostra em que etapa a instalação está (ou como terminou) e sai
+  --logs             mostra as últimas linhas do log do sistema e sai
 TXT
 }
 
@@ -64,6 +69,7 @@ while [ $# -gt 0 ]; do
     --ignorar-dns) IGNORAR_DNS=1; shift ;;
     -y) SIM=1; shift ;;
     --status) SO_STATUS=1; shift ;;
+    --progresso) SO_PROGRESSO=1; shift ;;
     --logs) SO_LOGS=1; shift ;;
     -h|--help) ajuda; exit 0 ;;
     *) erro "opção desconhecida: $1 (use --help)" ;;
@@ -71,9 +77,9 @@ while [ $# -gt 0 ]; do
 done
 
 # mantém a escolha do coletor feita na primeira instalação
-[ -n "$GOSOM" ] || GOSOM="$(grep -E '^GOSOM=' "$SRV/.env" 2>/dev/null | cut -d= -f2)"
+[ -n "$GOSOM" ] || GOSOM="$(grep -E '^GOSOM=' "$SRV/.env" 2>/dev/null | cut -d= -f2 || true)"
 GOSOM="${GOSOM:-1}"
-[ -n "$CADASTRO" ] || CADASTRO="$(grep -E '^CADASTRO_ABERTO=' "$SRV/.env" 2>/dev/null | cut -d= -f2)"
+[ -n "$CADASTRO" ] || CADASTRO="$(grep -E '^CADASTRO_ABERTO=' "$SRV/.env" 2>/dev/null | cut -d= -f2 || true)"
 CADASTRO="${CADASTRO:-false}"
 
 compose_app() { docker compose --project-directory "$SRV" -f "$SRV/docker-compose.yml" --env-file "$SRV/.env" "$@"; }
@@ -92,6 +98,31 @@ status() {
 [ "$(id -u)" = 0 ] || erro "rode como root (ou com sudo)."
 if [ "$SO_STATUS" = 1 ]; then status; exit 0; fi
 if [ "$SO_LOGS" = 1 ]; then compose_app logs --tail 120 app; exit 0; fi
+if [ "$SO_PROGRESSO" = 1 ]; then
+  [ -f "$ESTADO" ] || { echo "Nenhuma instalação registrada."; exit 0; }
+  IFS='|' read -r e h p d < "$ESTADO"
+  echo "Situação: $e desde $h: $d"
+  if [ "$e" = RODANDO ] && ! kill -0 "$p" 2>/dev/null; then
+    echo "ATENÇÃO: o instalador não está mais rodando, mas não terminou. Rode de novo."
+  fi
+  echo "Últimas linhas de $LOG:"; tail -n 8 "$LOG" 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g'
+  exit 0
+fi
+
+# ---------- acompanhamento: log em arquivo, estado e aviso a cada 5 minutos ----------
+INSTALANDO=1
+exec > >(tee -a "$LOG") 2>&1
+echo "Registro completo desta instalação: $LOG   (em outro terminal: bash instalar.sh --progresso)"
+( while sleep 300; do
+    printf '\033[36m... ainda trabalhando (%s min): %s\033[0m\n' "$(( ($(date +%s) - INICIO) / 60 ))" "$(cut -d'|' -f4 "$ESTADO" 2>/dev/null)"
+  done ) 2>/dev/null &
+PULSO=$!
+ao_sair() {
+  c=$?; pkill -P "$PULSO" 2>/dev/null; kill "$PULSO" 2>/dev/null || true
+  if [ "$c" = 0 ]; then etapa CONCLUIDA "Instalação concluída em $(( ($(date +%s) - INICIO) / 60 )) min"
+  else etapa ERRO "parou com código $c. Veja $LOG"; fi
+}
+trap ao_sair EXIT
 
 # ---------- 1. servidor ----------
 passo "Conferindo o servidor"
@@ -128,7 +159,7 @@ pergunta() { # var texto padrão
   APP_DOMAIN="${APP_DOMAIN:-$(grep -E '^APP_DOMAIN=' "$SRV/.env" | cut -d= -f2)}"
   API_DOMAIN="${API_DOMAIN:-$(grep -E '^API_DOMAIN=' "$SRV/.env" | cut -d= -f2)}"
   ACME_EMAIL="${ACME_EMAIL:-$(grep -E '^ACME_EMAIL=' "$SRV/.env" | cut -d= -f2)}"
-  ADMIN_EMAIL="${ADMIN_EMAIL:-$(grep -E '^ADMIN_EMAIL=' "$SRV/.env" | cut -d= -f2)}"
+  ADMIN_EMAIL="${ADMIN_EMAIL:-$(grep -E '^ADMIN_EMAIL=' "$SRV/.env" | cut -d= -f2 || true)}"
 }
 pergunta APP_DOMAIN "Endereço do sistema (ex.: crm.seudominio.com.br)" ""
 pergunta API_DOMAIN "Endereço da API (ex.: api.seudominio.com.br)" ""

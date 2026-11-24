@@ -16,7 +16,8 @@ Você está lendo isto porque alguém abriu este repositório no Claude Code, qu
    cd /opt/lead-crm
    bash instalar.sh -y --dominio-app crm.dominio.com.br --dominio-api api.dominio.com.br --email voce@dominio.com.br
    ```
-   Leva de 20 a 40 minutos. Rode em segundo plano se a sua ferramenta tiver limite de tempo e acompanhe. Se parar com erro, leia a mensagem, corrija a causa e rode de novo (é seguro repetir).
+   Leva de 20 a 40 minutos. Rode em segundo plano (`nohup bash instalar.sh ... > /dev/null 2>&1 < /dev/null &`): o registro completo vai para `/var/log/leadcrm-instalacao.log`. Se parar com erro, leia a mensagem, corrija a causa e rode de novo (é seguro repetir).
+4a. **Acompanhe de verdade, nunca suponha que está rodando:** a cada 5 minutos rode `bash instalar.sh --progresso` e conte à pessoa a etapa e o tempo. Avise na hora se aparecer `ERRO`, se aparecer "não está mais rodando" ou se o log ficar 10 minutos sem linha nova. Silêncio não é sucesso. Nunca descubra se o instalador está vivo com `pgrep -f instalar.sh`: esse comando acha a si mesmo e sempre diz que está rodando. Use o `--progresso`, que confere o processo pelo número (PID).
 5. **Confira:** `bash instalar.sh --status` e `curl -I https://crm.dominio.com.br/login` (200).
 6. **Entregue:** endereço, e-mail e senha do administrador (em `servidor/administrador.txt`), o aviso de guardar fora do servidor `servidor/app.env`, `servidor/supabase/.env` e `/root/.leadcrm-backup-pass`, e os primeiros passos: conectar o WhatsApp, fazer a primeira busca e, se quiser, colar a chave de IA.
 

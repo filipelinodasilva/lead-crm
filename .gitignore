@@ -48,3 +48,4 @@ supabase/.temp/
 
 # Lead CRM: arquivos gerados pelo instalador (senhas e dados do servidor)
 /servidor/
+/.instalacao-estado

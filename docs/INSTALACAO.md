@@ -67,6 +67,8 @@ Sem perguntas (tudo em uma linha):
 bash instalar.sh -y --dominio-app crm.seudominio.com.br --dominio-api api.seudominio.com.br --email voce@seudominio.com.br
 ```
 
+**Acompanhando:** a cada 5 minutos o instalador mostra "ainda trabalhando (N min)" e a etapa em que está. Se a tela parar sem esse aviso, algo travou. Caiu a conexão ou fechou o terminal? Entre de novo no servidor e rode `cd /opt/lead-crm && bash instalar.sh --progresso`: ele mostra a etapa atual, se terminou, se deu erro ou se o instalador parou no meio. O registro completo fica em `/var/log/leadcrm-instalacao.log`.
+
 Outras opções: `bash instalar.sh --help`. Para ligar o firewall (libera só as portas 22, 80 e 443), acrescente `--firewall`.
 
 ## 5. Primeiro acesso
@@ -87,6 +89,7 @@ Atenção com cadastro aberto: cada conta tem o próprio limite de buscas. Se vo
 | Para | Comando (dentro de `/opt/lead-crm`) |
 |---|---|
 | Ver a situação | `bash instalar.sh --status` |
+| Ver em que etapa a instalação está | `bash instalar.sh --progresso` |
 | Atualizar para a versão nova | `bash atualizar.sh` |
 | Ver o log do sistema | `bash instalar.sh --logs` |
 | Fazer backup agora | `leadcrm-backup` |
