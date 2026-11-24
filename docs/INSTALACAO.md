@@ -49,7 +49,7 @@ Na primeira vez, responda `yes` e digite a senha de root (ela não aparece enqua
 
 ```bash
 apt-get update && apt-get install -y git
-git clone https://github.com/SEU-USUARIO/lead-crm /opt/lead-crm
+git clone https://github.com/filipelinodasilva/lead-crm /opt/lead-crm
 cd /opt/lead-crm
 bash instalar.sh
 ```

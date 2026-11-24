@@ -20,7 +20,7 @@ Encontre empresas no Google Maps, aborde pelo WhatsApp, acompanhe cada conversa 
 Você precisa de uma VPS limpa com Ubuntu 24.04 e de dois subdomínios apontando para ela. Veja os requisitos e o passo a passo completo em **[docs/INSTALACAO.md](docs/INSTALACAO.md)**.
 
 ```bash
-git clone https://github.com/SEU-USUARIO/lead-crm /opt/lead-crm
+git clone https://github.com/filipelinodasilva/lead-crm /opt/lead-crm
 cd /opt/lead-crm
 bash instalar.sh
 ```
