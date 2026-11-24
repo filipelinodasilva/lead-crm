@@ -2391,7 +2391,10 @@
     "creating": "계정 만드는 중...",
     "submit": "계정 만들기",
     "haveAccount": "이미 계정이 있으신가요?",
-    "signIn": "로그인"
+    "signIn": "로그인",
+    "closedTitle": "가입이 닫혀 있습니다",
+    "closedDesc": "이 시스템은 초대를 통해서만 새 사용자를 받습니다. 관리자에게 초대를 요청하세요.",
+    "closedError": "계정을 만들 수 없습니다."
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "이메일을 확인하세요",

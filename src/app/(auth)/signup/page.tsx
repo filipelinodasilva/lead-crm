@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/card";
 import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
 
+// Lead CRM: cadastro público fechado por padrão (instalar.sh --cadastro-aberto liga).
+const CADASTRO_ABERTO = process.env.NEXT_PUBLIC_SIGNUP_OPEN === "true";
+
 // `useSearchParams` opts the component out of static prerendering
 // unless wrapped in Suspense — same pattern as /login.
 export default function SignupPage() {
@@ -78,6 +81,29 @@ function SignupPageInner() {
       : "/dashboard";
     const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
+    // Cadastro fechado (padrão): só entra quem tem convite; o servidor confere e cria a conta.
+    if (!CADASTRO_ABERTO) {
+      const res = await fetch("/api/auth/cadastro-convite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, fullName, invite: inviteToken }),
+      });
+      const corpo = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(corpo.error ?? t("closedError"));
+        setLoading(false);
+        return;
+      }
+      const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+      if (loginError) {
+        setError(loginError.message);
+        setLoading(false);
+        return;
+      }
+      window.location.href = next;
+      return;
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -105,6 +131,27 @@ function SignupPageInner() {
     setSuccess(true);
     setLoading(false);
   };
+
+  if (!CADASTRO_ABERTO && !inviteToken) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background px-4 py-8">
+        <Card className="w-full max-w-xl border-border bg-card px-2 py-6 sm:px-6 sm:py-10">
+          <CardHeader className="items-center text-center">
+            <p className="mb-1 text-sm font-semibold uppercase tracking-widest text-primary">{tb("name")}</p>
+            <CardTitle className="text-3xl text-foreground">{t("closedTitle")}</CardTitle>
+            <CardDescription className="text-base text-muted-foreground">{t("closedDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/login">
+              <Button variant="outline" className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground">
+                {t("backToSignIn")}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (success) {
     return (

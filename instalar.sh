@@ -18,7 +18,7 @@ SUPABASE_COMMIT="86f9c0c2506c8276a03410d99f3185b8bd67d0e9"   # versão testada d
 APP_DOMAIN="${LEADCRM_DOMINIO_APP:-}"; API_DOMAIN="${LEADCRM_DOMINIO_API:-}"; ACME_EMAIL="${LEADCRM_EMAIL:-}"
 ADMIN_EMAIL="${LEADCRM_ADMIN_EMAIL:-}"; ADMIN_SENHA="${LEADCRM_ADMIN_SENHA:-}"
 GOOGLE_PLACES_API_KEY="${GOOGLE_PLACES_API_KEY:-}"
-SIM=0; IGNORAR_DNS=0; GOSOM=""; BACKUP=1; FIREWALL=0; SO_STATUS=0; SO_LOGS=0
+SIM=0; IGNORAR_DNS=0; GOSOM=""; CADASTRO=""; BACKUP=1; FIREWALL=0; SO_STATUS=0; SO_LOGS=0
 
 vermelho() { printf '\033[31m%s\033[0m\n' "$*"; }
 passo() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -37,6 +37,8 @@ Opções:
   --admin-senha X     senha do administrador (padrão: gerada)
   --google-places X   chave da API Google Places (opcional; cada conta também pode cadastrar a sua)
   --sem-gosom         não liga o coletor gratuito do Google Maps
+  --cadastro-aberto   qualquer pessoa pode criar conta (para revender; padrão: fechado, só por convite)
+  --cadastro-fechado  volta a aceitar novos usuários só por convite
   --sem-backup        não agenda o backup diário
   --firewall          liga o firewall (UFW) liberando só as portas 22, 80 e 443
   --ignorar-dns       segue mesmo se o DNS ainda não aponta para este servidor (ex.: proxy da Cloudflare)
@@ -55,6 +57,8 @@ while [ $# -gt 0 ]; do
     --admin-senha) ADMIN_SENHA="${2:-}"; shift 2 ;;
     --google-places) GOOGLE_PLACES_API_KEY="${2:-}"; shift 2 ;;
     --sem-gosom) GOSOM=0; shift ;;
+    --cadastro-aberto) CADASTRO=true; shift ;;
+    --cadastro-fechado) CADASTRO=false; shift ;;
     --sem-backup) BACKUP=0; shift ;;
     --firewall) FIREWALL=1; shift ;;
     --ignorar-dns) IGNORAR_DNS=1; shift ;;
@@ -69,6 +73,8 @@ done
 # mantém a escolha do coletor feita na primeira instalação
 [ -n "$GOSOM" ] || GOSOM="$(grep -E '^GOSOM=' "$SRV/.env" 2>/dev/null | cut -d= -f2)"
 GOSOM="${GOSOM:-1}"
+[ -n "$CADASTRO" ] || CADASTRO="$(grep -E '^CADASTRO_ABERTO=' "$SRV/.env" 2>/dev/null | cut -d= -f2)"
+CADASTRO="${CADASTRO:-false}"
 
 compose_app() { docker compose --project-directory "$SRV" -f "$SRV/docker-compose.yml" --env-file "$SRV/.env" "$@"; }
 perfis() { [ "$(grep -E '^GOSOM=' "$SRV/.env" 2>/dev/null | cut -d= -f2)" = 1 ] && echo "--profile gosom" || true; }
@@ -217,7 +223,7 @@ setenv .env SUPABASE_PUBLIC_URL "https://$API_DOMAIN"
 setenv .env API_EXTERNAL_URL "https://$API_DOMAIN/auth/v1"
 setenv .env SITE_URL "https://$APP_DOMAIN"
 setenv .env ADDITIONAL_REDIRECT_URLS "https://$APP_DOMAIN/**"
-setenv .env DISABLE_SIGNUP "${DISABLE_SIGNUP:-false}"
+if [ "$CADASTRO" = true ]; then setenv .env DISABLE_SIGNUP false; else setenv .env DISABLE_SIGNUP true; fi
 setenv .env STUDIO_DEFAULT_ORGANIZATION "Lead CRM"
 setenv .env STUDIO_DEFAULT_PROJECT "Lead CRM"
 setenv .env DASHBOARD_USERNAME "admin"
@@ -282,7 +288,7 @@ GOSOM=$GOSOM
 EOF
 fi
 setenv "$SRV/.env" APP_DOMAIN "$APP_DOMAIN"; setenv "$SRV/.env" API_DOMAIN "$API_DOMAIN"; setenv "$SRV/.env" ACME_EMAIL "$ACME_EMAIL"
-setenv "$SRV/.env" GOSOM "$GOSOM"; setenv "$SRV/.env" ADMIN_EMAIL "$ADMIN_EMAIL"
+setenv "$SRV/.env" GOSOM "$GOSOM"; setenv "$SRV/.env" ADMIN_EMAIL "$ADMIN_EMAIL"; setenv "$SRV/.env" CADASTRO_ABERTO "$CADASTRO"
 EVO_KEY=$(grep -E '^EVOLUTION_API_KEY=' "$SRV/.env" | cut -d= -f2-)
 if [ ! -f "$SRV/app.env" ]; then
   cat > "$SRV/app.env" <<EOF
@@ -378,6 +384,7 @@ c_api=$(curl -s -o /dev/null -w '%{http_code}' -H "apikey: $(val ANON_KEY)" "htt
 passo "Instalação concluída"
 echo "Sistema:        https://$APP_DOMAIN"
 echo "Administrador:  $ADMIN_EMAIL"
+[ "$CADASTRO" = true ] && echo "Cadastro:       aberto (qualquer pessoa cria conta com 7 dias grátis)" || echo "Cadastro:       fechado (novos usuários só por convite, em Configurações > Membros da equipe)"
 if [ -f "$ADMIN_TXT" ]; then
   echo "Senha:          $(grep '^Senha:' "$ADMIN_TXT" | cut -d' ' -f2)   (também em $ADMIN_TXT)"
 fi

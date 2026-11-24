@@ -2391,7 +2391,10 @@
     "creating": "Creating account...",
     "submit": "Create account",
     "haveAccount": "Already have an account?",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "closedTitle": "Sign-up closed",
+    "closedDesc": "This system only accepts new users by invitation. Ask the administrator for an invite.",
+    "closedError": "Could not create the account."
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "Check your email",

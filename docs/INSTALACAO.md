@@ -76,7 +76,11 @@ Outras opções: `bash instalar.sh --help`. Para ligar o firewall (libera só as
 3. **Prospecção:** faça a primeira busca (ex.: "dentista" em "Campinas").
 4. **Configurações > IA:** cole a sua chave, se for usar o assistente.
 
-O administrador entra no painel **/admin**, onde libera ou bloqueia contas. Cada conta nova nasce com **7 dias grátis** e é bloqueada sozinha depois; o administrador não tem esse limite.
+**Cadastro fechado por padrão:** ninguém cria conta sozinho. Para colocar alguém da equipe, vá em **Configurações > Membros da equipe** e mande o convite.
+
+Vai revender o sistema para clientes? Rode `bash instalar.sh --cadastro-aberto`. Aí qualquer pessoa cria conta, cada conta nova nasce com **7 dias grátis** e é bloqueada sozinha depois, e você libera ou bloqueia no painel **/admin**. O administrador não tem esse limite. Para fechar de novo: `bash instalar.sh --cadastro-fechado`.
+
+Atenção com cadastro aberto: cada conta tem o próprio limite de buscas. Se você instalou com a sua chave do Google Places, as buscas das contas de clientes também saem da sua fatura.
 
 ## 6. Dia a dia
 
@@ -106,5 +110,5 @@ O backup roda todo dia às 3h30 em `/opt/backups/lead-crm`, criptografado. A sen
 
 - O banco e o painel do Supabase **não ficam na internet**: só o sistema e a API passam pelo HTTPS.
 - Prefira entrar no servidor com **chave SSH** em vez de senha, e use `--firewall`.
-- Sem SMTP, o cadastro de novas contas entra direto (sem confirmar e-mail). Para vender acesso a terceiros, configure o SMTP (variáveis `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` antes de rodar o instalador) ou feche o cadastro com `DISABLE_SIGNUP=true`.
+- O cadastro público vem fechado. Se abrir com `--cadastro-aberto`, configure também o SMTP (variáveis `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` antes de rodar o instalador), senão as contas novas entram sem confirmar o e-mail.
 - O coletor gratuito raspa o Google Maps, o que contraria os termos do Google. Use com moderação (há um teto mensal de 300 buscas) ou use a API oficial do Google Places.

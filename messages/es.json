@@ -2391,7 +2391,10 @@
     "creating": "Creando cuenta...",
     "submit": "Crear cuenta",
     "haveAccount": "¿Ya tienes una cuenta?",
-    "signIn": "Iniciar sesión"
+    "signIn": "Iniciar sesión",
+    "closedTitle": "Registro cerrado",
+    "closedDesc": "Este sistema solo acepta nuevos usuarios por invitación. Pide una invitación al administrador.",
+    "closedError": "No se pudo crear la cuenta."
   },
   "ForgotPasswordPage": {
     "checkEmailTitle": "Revisa tu correo",

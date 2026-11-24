@@ -13,7 +13,7 @@ Encontre empresas no Google Maps, aborde pelo WhatsApp, acompanhe cada conversa 
 - **Funil de vendas:** negócios por etapa, do primeiro contato ao fechamento.
 - **Automações, fluxos e assistente de IA:** respostas automáticas, base de conhecimento e chave própria da OpenAI, da Anthropic ou de uma API compatível.
 - **WhatsApp por QR Code (Evolution API) ou pela API oficial da Meta.**
-- **Multiempresa:** contas, subcontas no estilo agência, papéis (dono, admin, atendente, leitura), teste grátis de 7 dias e painel do administrador para liberar ou bloquear contas.
+- **Multiempresa:** contas, subcontas no estilo agência, papéis (dono, admin, atendente, leitura) e convite da equipe. Para revender, abra o cadastro (`--cadastro-aberto`): cada conta nova ganha 7 dias grátis e você libera ou bloqueia no painel do administrador.
 
 ## Instalação em 1 comando (VPS)
 

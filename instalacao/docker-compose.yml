@@ -38,6 +38,7 @@ services:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
         NEXT_PUBLIC_SITE_URL: https://${APP_DOMAIN}
         NEXT_PUBLIC_APP_LOCALE: pt
+        NEXT_PUBLIC_SIGNUP_OPEN: ${CADASTRO_ABERTO:-false}
     restart: unless-stopped
     env_file:
       - app.env
