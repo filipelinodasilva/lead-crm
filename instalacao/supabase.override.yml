@@ -1,0 +1,14 @@
+# Ajustes do Lead CRM sobre o compose oficial do Supabase (copiado para servidor/supabase/docker-compose.override.yml).
+# Exige Docker Compose 2.24 ou mais novo (marcas !override).
+services:
+  # O gateway não vai para a internet: só em 127.0.0.1 (painel Studio por túnel SSH).
+  # O Caddy do Lead CRM entra na rede interna e fala com "supabase-envoy:8000".
+  api-gw:
+    ports: !override
+      - '127.0.0.1:8000:8000'
+
+  # Não usados pelo Lead CRM: ficam desligados (economizam memória e não abrem portas).
+  functions:
+    profiles: ['desativado']
+  supavisor:
+    profiles: ['desativado']

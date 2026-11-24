@@ -1,0 +1,161 @@
+# Lead CRM: app, HTTPS (Caddy), agendador, WhatsApp (Evolution API) e coletor do Google Maps.
+# O instalar.sh copia este arquivo para servidor/docker-compose.yml. O Supabase fica em servidor/supabase
+# (projeto "supabase") e este projeto entra na rede dele (supabase_default) para falar com o gateway.
+name: leadcrm
+
+services:
+  caddy:
+    image: caddy:2@sha256:ce773ec7a742ce15ee6bf2bb5f65882b9e2a4487b10733e6f1484f86e6b5d8bc
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      default:
+        # Dentro da rede, o app resolve os domínios públicos para o próprio Caddy
+        aliases:
+          - ${APP_DOMAIN}
+          - ${API_DOMAIN}
+      supabase: {}
+    depends_on:
+      - app
+
+  app:
+    build:
+      context: ..
+      # NEXT_PUBLIC_* entram no código do navegador na hora do build: mudou domínio ou chave, reconstrua.
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: https://${API_DOMAIN}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+        NEXT_PUBLIC_SITE_URL: https://${APP_DOMAIN}
+        NEXT_PUBLIC_APP_LOCALE: pt
+    restart: unless-stopped
+    env_file:
+      - app.env
+    environment:
+      PORT: 3000
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000').then((r)=>process.exit(r.ok||r.status<500?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - default
+      - supabase
+
+  # Chama as rotinas do app a cada minuto (automações, fluxos, campanhas e atendimento).
+  agendador:
+    image: curlimages/curl@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
+    restart: unless-stopped
+    depends_on:
+      - app
+    env_file:
+      - app.env
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        while true; do
+          curl -s -o /dev/null -H "x-cron-secret: $$AUTOMATION_CRON_SECRET" http://app:3000/api/automations/cron
+          curl -s -o /dev/null -H "x-cron-secret: $$AUTOMATION_CRON_SECRET" http://app:3000/api/flows/cron
+          curl -s -o /dev/null -H "x-cron-secret: $$AUTOMATION_CRON_SECRET" http://app:3000/api/prospect/cron
+          curl -s -o /dev/null -H "x-cron-secret: $$AUTOMATION_CRON_SECRET" http://app:3000/api/attendance/cron
+          sleep 60
+        done
+
+  # --- WhatsApp por QR code (Evolution API), com banco e cache próprios ---
+  evolution-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    container_name: leadcrm-evolution-postgres
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_DB: evolution
+      POSTGRES_PASSWORD: ${EVOLUTION_DB_PASSWORD}
+    volumes:
+      - evolution_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U evolution -d evolution']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  evolution-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --appendonly yes
+    volumes:
+      - evolution_redis:/data
+
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: unless-stopped
+    depends_on:
+      evolution-postgres:
+        condition: service_healthy
+      evolution-redis:
+        condition: service_started
+    ports:
+      # só neste servidor (painel por túnel SSH); o app usa http://evolution-api:8080 pela rede interna
+      - '127.0.0.1:8081:8080'
+    environment:
+      SERVER_URL: http://evolution-api:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${EVOLUTION_DB_PASSWORD}@evolution-postgres:5432/evolution?schema=public
+      DATABASE_SAVE_DATA_INSTANCE: 'true'
+      DATABASE_SAVE_DATA_NEW_MESSAGE: 'true'
+      DATABASE_SAVE_MESSAGE_UPDATE: 'true'
+      DATABASE_SAVE_DATA_CONTACTS: 'true'
+      DATABASE_SAVE_DATA_CHATS: 'true'
+      CACHE_REDIS_ENABLED: 'true'
+      CACHE_REDIS_URI: redis://evolution-redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: 'false'
+      CACHE_LOCAL_ENABLED: 'false'
+      WEBHOOK_GLOBAL_ENABLED: 'false'
+      LOG_LEVEL: ERROR,WARN,INFO
+    volumes:
+      - evolution_instances:/evolution/instances
+
+  # --- Coletor gratuito do Google Maps (perfil "gosom"). Raspar o Google contraria os termos dele
+  # e o IP pode ser bloqueado: respeite o teto mensal (PROSPECT_GOSOM_MONTHLY_CAP). ---
+  gosom:
+    image: gosom/google-maps-scraper@sha256:0b9be6be68ad134dd2e9af30e33def1a5f49295965889daec30f0bd111eb9c7d
+    profiles: ['gosom']
+    restart: unless-stopped
+    command: ['-data-folder', '/gmapsdata', '-c', '1']
+    volumes:
+      - gosomdata:/gmapsdata
+    shm_size: 512m
+    deploy:
+      resources:
+        limits:
+          memory: 1500m
+          cpus: '2'
+
+networks:
+  supabase:
+    external: true
+    name: supabase_default
+
+volumes:
+  caddy_data:
+  caddy_config:
+  evolution_pg:
+  evolution_redis:
+  evolution_instances:
+  gosomdata:

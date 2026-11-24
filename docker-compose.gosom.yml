@@ -1,0 +1,27 @@
+# Motor gratuito de prospecção (gosom/google-maps-scraper em modo servidor).
+# Coletor gratuito: raspa o Google Maps, sem API paga.
+# Uso: docker compose -f docker-compose.gosom.yml up -d
+# No .env.local: PROSPECT_GOSOM_URL=http://127.0.0.1:8082
+# Atenção: raspar o Google contraria os termos de uso dele e o IP pode ser bloqueado
+# se o volume crescer. Por isso há teto de buscas por mês (PROSPECT_GOSOM_MONTHLY_CAP).
+name: click-prospect-gosom
+
+services:
+  gosom:
+    image: gosom/google-maps-scraper
+    restart: unless-stopped
+    command: ['-data-folder', '/gmapsdata', '-c', '1']
+    ports:
+      # só neste computador, nunca exposto na rede
+      - '127.0.0.1:${GOSOM_HOST_PORT:-8082}:8080'
+    volumes:
+      - gosomdata:/gmapsdata
+    shm_size: 512m
+    deploy:
+      resources:
+        limits:
+          memory: 1500m
+          cpus: '2'
+
+volumes:
+  gosomdata:

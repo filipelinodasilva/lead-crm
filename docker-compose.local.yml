@@ -1,0 +1,23 @@
+# Sobrescrita para teste LOCAL em Docker (Windows/Mac).
+# Uso: docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local up --build -d
+#
+# O Supabase local (supabase start) escuta em localhost:56321 no seu computador.
+# O navegador acessa localhost:56321 normalmente, mas dentro do container "localhost" é o próprio
+# container. O sidecar "ponte-supabase" compartilha a rede do app e repassa a porta 56321 ao host,
+# assim a mesma URL (NEXT_PUBLIC_SUPABASE_URL=http://localhost:56321) funciona nos dois lados.
+# Na VPS isso não é necessário (a URL do Supabase é pública).
+services:
+  app:
+    ports:
+      - '${HOST_PORT:-3010}:3000'
+    # o sidecar usa a rede do app, então o mapeamento do host fica aqui
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+  ponte-supabase:
+    image: alpine/socat:latest
+    network_mode: 'service:app'
+    command: tcp-listen:56321,fork,reuseaddr tcp:host.docker.internal:56321
+    restart: unless-stopped
+    depends_on:
+      - app

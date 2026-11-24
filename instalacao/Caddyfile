@@ -1,0 +1,39 @@
+# Caddy: HTTPS automático (Let's Encrypt). Domínios e e-mail vêm das variáveis do compose.
+{
+	email {$ACME_EMAIL}
+}
+
+# Aplicativo (Next.js)
+{$APP_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	request_body {
+		max_size 50MB
+	}
+	reverse_proxy app:3000
+}
+
+# API do Supabase: só as rotas que o navegador precisa. O painel (Studio) NÃO sai por aqui.
+{$API_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+	@supabase path /auth/v1/* /rest/v1/* /realtime/v1/* /storage/v1/* /graphql/v1/*
+	handle @supabase {
+		request_body {
+			max_size 50MB
+		}
+		reverse_proxy supabase-envoy:8000
+	}
+	handle {
+		respond "Not found" 404
+	}
+}
